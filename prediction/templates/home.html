@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>House Price Predictor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4a90e2;
+            --secondary: #7ed321;
+            --background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        body {
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: var(--background);
+            padding: 20px;
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            padding: 2.5rem;
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 600px;
+            transform: translateY(0);
+            transition: transform 0.3s ease;
+        }
+
+        .container:hover {
+            transform: translateY(-5px);
+        }
+
+        h2 {
+            color: #2c3e50;
+            margin-bottom: 2rem;
+            text-align: center;
+            font-weight: 600;
+        }
+
+        .form-group {
+            margin-bottom: 1.5rem;
+            position: relative;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: all 0.3s ease;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+            box-shadow: 0 0 10px rgba(74, 144, 226, 0.2);
+        }
+
+        button {
+            width: 100%;
+            padding: 15px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 500;
+        }
+
+        button:hover {
+            background: #357abd;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(74, 144, 226, 0.3);
+        }
+
+        .result-card {
+            margin-top: 2rem;
+            padding: 1.5rem;
+            border-radius: 10px;
+            background: #f8f9fa;
+            text-align: center;
+            animation: fadeIn 0.5s ease;
+        }
+
+        .prediction-text {
+            color: var(--secondary);
+            font-size: 1.5rem;
+            font-weight: 600;
+        }
+
+        .error-text {
+            color: #e74c3c;
+            font-weight: 500;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            margin: 20px 0;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid var(--primary);
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🏠 Smart Price Predictor</h2>
+        <form id="predictionForm" action="/predict/" method="post">
+            {% csrf_token %}
+            <div class="form-group">
+                <input type="number" name="lotarea_marla" placeholder="Plot Size (in marla)" required>
+            </div>
+            <div class="form-group">
+                <input type="number" name="OverallQual" placeholder="Construction Quality (1-10)" min="1" max="10" required>
+            </div>
+            <div class="form-group">
+                <input type="number" name="grlivarea_marla" placeholder="Living Space (in marla)" required>
+            </div>
+            <div class="form-group">
+                <input type="number" name="GarageCars" placeholder="Garage Capacity (Cars)" required>
+            </div>
+            <div class="form-group">
+                <input type="number" name="basement_marla" placeholder="Basement Area (in marla)" required>
+            </div>
+            <button type="submit">Estimate Price</button>
+        </form>
+
+        <div class="loading">
+            <div class="spinner"></div>
+        </div>
+
+        {% if prediction %}
+        <div class="result-card">
+            <p class="prediction-text">Predicted Value: {{ prediction }}</p>
+            <p>💰 Best estimated market price</p>
+        </div>
+        {% endif %}
+
+        {% if error %}
+        <div class="result-card">
+            <p class="error-text">Error: {{ error }}</p>
+        </div>
+        {% endif %}
+    </div>
+
+    <script>
+        const form = document.getElementById('predictionForm');
+        const loading = document.querySelector('.loading');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            loading.style.display = 'block';
+            
+            try {
+                const formData = new FormData(form);
+                const response = await fetch(form.action, {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    }
+                });
+
+                if (response.ok) {
+                    const html = await response.text();
+                    document.documentElement.innerHTML = html;
+                }
+                } else {
+                    throw new Error('Server response not OK');
+                }
+            } catch (error) {
+                loading.style.display = 'none';
+                alert('An error occurred. Please try again.');
+            }
+        });
+
+        // Input validation
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', (e) => {
+                if (e.target.validity.valid) {
+                    e.target.style.borderColor = '#e0e0e0';
+                } else {
+                    e.target.style.borderColor = '#e74c3c';
+                }
+            });
+        });
+    </script>
+</body>
+</html>
